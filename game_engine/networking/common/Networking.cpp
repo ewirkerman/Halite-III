@@ -20,12 +20,16 @@ constexpr auto NAME_MAX_LENGTH = 30;
  * @param received_input The current received input from the player.
  */
 void Networking::handle_player_error(Player::id_type player, std::string received_input) {
-    auto &connection = connections.get(player);
-    try {
-        received_input += connection->read_trailing_input();
-    } catch (...) {
-        // Ignore any exceptions from the read attempt.
-    }
+	auto &connection = connections.get(player); 
+	if (!config.invert_control) {	
+		try {
+			received_input += connection->read_trailing_input();
+		}
+		catch (...) {
+			// Ignore any exceptions from the read attempt.
+		}
+	}
+    
     if (!received_input.empty()) {
         game.logs.log(player, "Last input received was:");
         game.logs.log(player, received_input);
@@ -54,7 +58,9 @@ void Networking::handle_player_error(Player::id_type player, std::string receive
  * @param player The player.
  */
 void Networking::connect_player(hlt::Player &player) {
-    connections.add(player.id, connection_factory.new_connection(player.command));
+	if (!config.invert_control) {
+		connections.add(player.id, connection_factory.new_connection(player.command));
+	}
 }
 
 /**
@@ -84,11 +90,18 @@ void Networking::initialize_player(Player &player) {
     message_stream << game.map;
 
     try {
-        connections.get(player.id)->send_string(message_stream.str());
-        Logging::log("Init message sent", Logging::Level::Debug, player.id);
-        // Receive a name from the player.
-        static constexpr auto INIT_TIMEOUT = std::chrono::seconds(30);
-        auto name = connections.get(player.id)->get_string(INIT_TIMEOUT).substr(0, NAME_MAX_LENGTH);
+		std::string name;
+		if (config.invert_control) {
+			std::cout << message_stream.str();
+			std::cin >> name;
+		}
+		else {
+			connections.get(player.id)->send_string(message_stream.str());
+			Logging::log("Init message sent", Logging::Level::Debug, player.id);
+			// Receive a name from the player.
+			static constexpr auto INIT_TIMEOUT = std::chrono::seconds(30);
+			name = connections.get(player.id)->get_string(INIT_TIMEOUT).substr(0, NAME_MAX_LENGTH);
+		}
         // On Windows, we get the \r character in names.
         name.erase(std::remove(name.begin(), name.end(), '\r'), name.end());
         player.name = name;
@@ -138,10 +151,16 @@ std::vector<std::unique_ptr<Command>> Networking::handle_frame(Player &player) {
     std::vector<std::unique_ptr<Command>> commands;
     std::string received_input;
     try {
-        connections.get(player.id)->send_string(message_stream.str());
-        Logging::log("Turn info sent", Logging::Level::Debug, player.id);
-        // Get commands from the player.
-        received_input = connections.get(player.id)->get_string();
+		if (config.invert_control) {
+			std::cout << message_stream.str();
+			std::cin >> received_input;
+		}
+		else {
+			connections.get(player.id)->send_string(message_stream.str());
+			Logging::log("Turn info sent", Logging::Level::Debug, player.id);
+			// Get commands from the player.
+			received_input = connections.get(player.id)->get_string();
+		}
         std::istringstream command_stream(received_input);
         std::unique_ptr<Command> command;
         while (command_stream >> command) {

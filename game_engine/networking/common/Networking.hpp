@@ -30,10 +30,12 @@ class Networking final {
 private:
     ConnectionFactory connection_factory; /**< The platform-specific connection factory. */
     Connections connections;      /**< The current network connections. */
-    NetworkingConfig config;      /**< The networking configuration. */
+    
     hlt::Halite &game;            /**< The current game. */
 
 public:
+	NetworkingConfig config;      /**< The networking configuration. */
+
     /**
      * Launch the bot for a player and register their connection.
      *

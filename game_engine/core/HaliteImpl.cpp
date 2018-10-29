@@ -126,6 +126,9 @@ void HaliteImpl::run_game() {
                                         [&networking = game.networking, &player = player] {
                                             networking.initialize_player(player);
                                         });
+		if (game.networking.config.invert_control) {
+			results[player_id].wait();
+		}
     }
     for (auto &[player_id, result] : results) {
         try {
@@ -195,6 +198,9 @@ void HaliteImpl::process_turn() {
                                             [&networking = game.networking, &player = player] {
                                                 return networking.handle_frame(player);
                                             });
+			if (game.networking.config.invert_control) {
+				results[player_id].wait();
+			}
         }
     }
     for (auto &[player_id, result] : results) {

@@ -27,6 +27,7 @@ int main(int argc, char *argv[]) {
     using namespace TCLAP;
     CmdLine cmd("Halite Game Environment", ' ', HALITE_VERSION);
     SwitchArg timeout_switch("", "no-timeout", "Causes game environment to ignore bot timeouts.", cmd, false);
+	SwitchArg invert_control_switch("", "invert-control", "Causes game environment to use its own stdin and std out rather than spawning bots via command.", cmd, false);
     SwitchArg no_replay_switch("", "no-replay", "Turns off the replay generation.", cmd, false);
     SwitchArg no_logs_switch("", "no-logs", "Turns off writing error logs.", cmd, false);
     SwitchArg print_constants_switch("", "print-constants", "Print out the default constants and exit.", cmd, false);
@@ -56,7 +57,7 @@ int main(int argc, char *argv[]) {
     MultiArg<std::string> override_args("o", "override-names", "Overrides player-sent names.", false, "name strings",
                                         cmd);
     MultiSwitchArg verbosity_arg("v", "verbosity", "Increase the logging verbosity level.", cmd);
-    UnlabeledMultiArg<std::string> command_args("bot-commands", "Start commands for bots.", true, "path strings", cmd);
+    UnlabeledMultiArg<std::string> command_args("bot-commands", "Start commands for bots.", false, "path strings", cmd);
 
     cmd.parse(argc, argv);
 
@@ -110,7 +111,17 @@ int main(int argc, char *argv[]) {
 
     // Read the player bot commands
     auto bot_commands = command_args.getValue();
-    if (bot_commands.size() > constants.MAX_PLAYERS) {
+	if (invert_control_switch.getValue()) {
+		if (bot_commands.size() > 0) {
+			Logging::log("Bot commands are not accepted with control inversion", Logging::Level::Error);
+			return 1;
+		}
+		else {
+			for (int i = 0; i < n_players; i++) {
+				bot_commands.push_back("dummy for invert-control");
+			}
+		}
+	} else if (bot_commands.size() > constants.MAX_PLAYERS) {
         Logging::log("Too many players (max is " + std::to_string(constants.MAX_PLAYERS) + ")", Logging::Level::Error);
         return 1;
     } else if (bot_commands.size() > n_players) {
@@ -138,6 +149,7 @@ int main(int argc, char *argv[]) {
 
     net::NetworkingConfig networking_config{};
     networking_config.ignore_timeout = timeout_switch.getValue();
+	networking_config.invert_control = invert_control_switch.getValue();
 
     hlt::Map map(map_parameters.width, map_parameters.height);
     hlt::mapgen::Generator::generate(map, map_parameters);
