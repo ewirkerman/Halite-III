@@ -127,6 +127,7 @@ void HaliteImpl::run_game() {
                                             networking.initialize_player(player);
                                         });
 		if (game.networking.config.invert_control) {
+			Logging::log("Waiting for player name", Logging::Level::Info, player_id);
 			results[player_id].wait();
 		}
     }
@@ -192,6 +193,12 @@ void HaliteImpl::process_turn() {
     using Commands = std::vector<std::unique_ptr<Command>>;
     ordered_id_map<Player, Commands> commands{};
     id_map<Player, std::future<Commands>> results{};
+	for (auto &[player_id, player] : game.store.players) {
+		if (!player.terminated) {
+			Logging::log("Sending board to player", Logging::Level::Info, player_id);
+			game.networking.send_frame(player);
+		}
+	}
     for (auto &[player_id, player] : game.store.players) {
         if (!player.terminated) {
             results[player_id] = std::async(std::launch::async,
@@ -199,6 +206,7 @@ void HaliteImpl::process_turn() {
                                                 return networking.handle_frame(player);
                                             });
 			if (game.networking.config.invert_control) {
+				Logging::log("Waiting for moves from player", Logging::Level::Info, player_id);
 				results[player_id].wait();
 			}
         }

@@ -93,7 +93,8 @@ void Networking::initialize_player(Player &player) {
 		std::string name;
 		if (config.invert_control) {
 			std::cout << message_stream.str();
-			std::cin >> name;
+			Logging::log("Init message sent", Logging::Level::Debug, player.id);
+			getline (std::cin, name);
 		}
 		else {
 			connections.get(player.id)->send_string(message_stream.str());
@@ -124,40 +125,15 @@ void Networking::initialize_player(Player &player) {
  * @return The commands from the player.
  */
 std::vector<std::unique_ptr<Command>> Networking::handle_frame(Player &player) {
-    std::stringstream message_stream;
-    // Send the turn number, then each player in the game.
-    message_stream << game.turn_number << std::endl;
-    for (const auto &[_, other_player] : game.store.players) {
-        message_stream << other_player;
-        // Output a list of entities.
-        for (const auto &[entity_id, location] : other_player.entities) {
-            const auto entity_iterator = game.store.entities.find(entity_id);
-            message_stream << entity_id
-                           << " " << location
-                           << " " << entity_iterator->second.energy
-                           << std::endl;
-        }
-        // Output a list of dropoffs.
-        for (const auto &dropoff : other_player.dropoffs) {
-            message_stream << dropoff << std::endl;
-        }
-    }
-    // Send the changed cells.
-    message_stream << game.store.changed_cells.size() << std::endl;
-    for (const auto &location : game.store.changed_cells) {
-        message_stream << location << " " << game.map.at(location).energy << std::endl;
-    }
-
     std::vector<std::unique_ptr<Command>> commands;
     std::string received_input;
     try {
 		if (config.invert_control) {
-			std::cout << message_stream.str();
-			std::cin >> received_input;
+			getline(std::cin, received_input);
+			//std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+			Logging::log("*"+received_input+"*", Logging::Level::Debug, player.id);
 		}
 		else {
-			connections.get(player.id)->send_string(message_stream.str());
-			Logging::log("Turn info sent", Logging::Level::Debug, player.id);
 			// Get commands from the player.
 			received_input = connections.get(player.id)->get_string();
 		}
@@ -179,6 +155,47 @@ std::vector<std::unique_ptr<Command>> Networking::handle_frame(Player &player) {
     }
 
     return commands;
+}
+
+void Networking::send_frame(hlt::Player & player)
+{
+	std::stringstream message_stream;
+	// Send the turn number, then each player in the game.
+	message_stream << game.turn_number << std::endl;
+	for (const auto &[_, other_player] : game.store.players) {
+		message_stream << other_player;
+		// Output a list of entities.
+		for (const auto &[entity_id, location] : other_player.entities) {
+			const auto entity_iterator = game.store.entities.find(entity_id);
+			message_stream << entity_id
+				<< " " << location
+				<< " " << entity_iterator->second.energy
+				<< std::endl;
+		}
+		// Output a list of dropoffs.
+		for (const auto &dropoff : other_player.dropoffs) {
+			message_stream << dropoff << std::endl;
+		}
+	}
+	// Send the changed cells.
+	message_stream << game.store.changed_cells.size() << std::endl;
+	for (const auto &location : game.store.changed_cells) {
+		message_stream << location << " " << game.map.at(location).energy << std::endl;
+	}
+
+	try {
+		if (config.invert_control) {
+			std::cout << message_stream.str();
+		}
+		else {
+			connections.get(player.id)->send_string(message_stream.str());
+		}
+	}
+	catch (const BotError &e) {
+		Logging::log("Communication failed", Logging::Level::Error, player.id);
+		game.logs.log(player.id, e.what(), PlayerLog::Level::Error);
+		throw;
+	}
 }
 
 /**

@@ -66,7 +66,7 @@ public:
      * @return The commands from the player.
      */
     std::vector<std::unique_ptr<hlt::Command>> handle_frame(hlt::Player &player);
-
+	void send_frame(hlt::Player &player);
     /**
      * Handle a player communication error.
      * @param player The player ID.

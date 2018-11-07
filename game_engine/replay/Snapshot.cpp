@@ -73,6 +73,7 @@ Snapshot Snapshot::from_str(const std::string &snapshot) {
         map.push_back(energy);
         if (iss.peek() == SNAPSHOT_LIST_DELIMITER) iss.ignore();
     }
+	//if (iss.peek() == SNAPSHOT_FIELD_DELIMITER) iss.ignore();
     ignore_delimiter(iss, SNAPSHOT_FIELD_DELIMITER, 0);
 
     std::unordered_map<Player::id_type, PlayerSnapshot> players;
